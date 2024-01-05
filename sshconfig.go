@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -43,8 +44,9 @@ func (s SSHSigner) toSigner() (ssh.Signer, error) {
 //********** SSHAuthMethod
 
 type SSHAuthMethod struct {
-	Password   *string     `json:"password" yaml:"password" toml:"password"`
-	PublicKeys []SSHSigner `json:"public-keys" yaml:"public-keys" toml:"public-keys"`
+	Password     *string     `json:"password" yaml:"password" toml:"password"`
+	PasswordFile *string     `json:"password-file" yaml:"password-file" toml:"password-file"`
+	PublicKeys   []SSHSigner `json:"public-keys" yaml:"public-keys" toml:"public-keys"`
 }
 
 //********** SSHBaseConfig
@@ -83,6 +85,14 @@ func (cc SSHClientConfig) ToGoSSHClientConfig() (*ssh.ClientConfig, error) {
 	for _, auth := range cc.Auth {
 		if auth.Password != nil {
 			cfg.Auth = append(cfg.Auth, ssh.Password(*auth.Password))
+		}
+		if auth.PasswordFile != nil {
+			passwordData, err := loadFile(*auth.PasswordFile)
+			if err != nil {
+				return nil, err
+			}
+			password, _, _ := strings.Cut(string(passwordData), "\n")
+			cfg.Auth = append(cfg.Auth, ssh.Password(password))
 		}
 		for _, key := range auth.PublicKeys {
 			var signers []ssh.Signer

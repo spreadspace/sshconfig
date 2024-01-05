@@ -89,7 +89,7 @@ func (cc SSHClientConfig) ToGoSSHClientConfig() (*ssh.ClientConfig, error) {
 		if auth.PasswordFile != nil {
 			passwordData, err := loadFile(*auth.PasswordFile)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to load password from file: %v", err)
 			}
 			password, _, _ := strings.Cut(string(passwordData), "\n")
 			cfg.Auth = append(cfg.Auth, ssh.Password(password))

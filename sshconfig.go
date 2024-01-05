@@ -139,6 +139,11 @@ func (cc SSHClientConfig) ToGoSSHClientConfig() (*ssh.ClientConfig, error) {
 			cfg.Auth = append(cfg.Auth, ssh.PublicKeys(signers...))
 		}
 	}
+
+	var err error
+	if cfg.HostKeyCallback, err = cc.HostKey.toHostKeyCallback(); err != nil {
+		return nil, err
+	}
 	return cfg, nil
 }
 

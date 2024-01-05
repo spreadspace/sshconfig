@@ -31,14 +31,18 @@ func (s SSHSigner) toSigner() (ssh.Signer, error) {
 	if s.PrivateKeyFile != "" && s.PrivateKeyData != "" {
 		return nil, fmt.Errorf("private-key and private-key-data are mutual exclusive")
 	}
-	pemData := []byte(s.PrivateKeyData)
+	keyData := []byte(s.PrivateKeyData)
 	if s.PrivateKeyFile != "" {
 		var err error
-		if pemData, err = loadFile(s.PrivateKeyFile); err != nil {
+		if keyData, err = loadFile(s.PrivateKeyFile); err != nil {
 			return nil, fmt.Errorf("failed to load private-key: %v", err)
 		}
 	}
-	return ssh.ParsePrivateKey(pemData)
+	key, err := ssh.ParsePrivateKey(keyData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load private-key: %v", err)
+	}
+	return key, nil
 }
 
 //********** SSHAuthMethod
@@ -47,6 +51,36 @@ type SSHAuthMethod struct {
 	Password     *string     `json:"password" yaml:"password" toml:"password"`
 	PasswordFile *string     `json:"password-file" yaml:"password-file" toml:"password-file"`
 	PublicKeys   []SSHSigner `json:"public-keys" yaml:"public-keys" toml:"public-keys"`
+}
+
+//********** SSHHostKey
+
+type SSHHostKey struct {
+	InsecureIgnore bool   `json:"insecure-ignore" yaml:"insecure-ignore" toml:"insecure-ignore"`
+	PublicKeyFile  string `json:"public-key" yaml:"public-key" toml:"public-key"`
+	PublicKeyData  string `json:"public-key-data" yaml:"public-key-data" toml:"public-key-data"`
+}
+
+func (h SSHHostKey) toHostKeyCallback() (ssh.HostKeyCallback, error) {
+	if h.InsecureIgnore {
+		return ssh.InsecureIgnoreHostKey(), nil
+	}
+
+	if h.PublicKeyFile != "" && h.PublicKeyData != "" {
+		return nil, fmt.Errorf("public-key and public-key-data are mutual exclusive")
+	}
+	keyData := []byte(h.PublicKeyData)
+	if h.PublicKeyFile != "" {
+		var err error
+		if keyData, err = loadFile(h.PublicKeyFile); err != nil {
+			return nil, fmt.Errorf("failed to load public-key: %v", err)
+		}
+	}
+	key, err := ssh.ParsePublicKey(keyData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load public-key: %v", err)
+	}
+	return ssh.FixedHostKey(key), nil
 }
 
 //********** SSHBaseConfig
@@ -67,6 +101,7 @@ type SSHClientConfig struct {
 	HostKeyAlgorithms []string        `json:"host-key-algorithms" yaml:"host-key-algorithms" toml:"host-key-algorithms"`
 	Timeout           time.Duration   `json:"timeout" yaml:"timeout" toml:"timeout"`
 	Auth              []SSHAuthMethod `json:"auth" yaml:"auth" toml:"auth"`
+	HostKey           SSHHostKey      `json:"host-key" yaml:"host-key" toml:"host-key"`
 }
 
 func (cc SSHClientConfig) ToGoSSHClientConfig() (*ssh.ClientConfig, error) {

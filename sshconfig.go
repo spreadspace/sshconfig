@@ -1,6 +1,7 @@
 package sshconfig
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -76,7 +77,7 @@ func (h SSHHostKey) toHostKeyCallback() (ssh.HostKeyCallback, error) {
 			return nil, fmt.Errorf("failed to load public-key: %v", err)
 		}
 	}
-	key, err := ssh.ParsePublicKey(keyData)
+	_, _, key, _, _, err := ssh.ParseKnownHosts(bytes.Join([][]byte{[]byte("*"), keyData}, []byte(" ")))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load public-key: %v", err)
 	}

@@ -94,7 +94,7 @@ type SSHClientConfig struct {
 	HostKeyAlgorithms []string        `json:"host-key-algorithms" yaml:"host-key-algorithms" toml:"host-key-algorithms"`
 	Timeout           time.Duration   `json:"timeout" yaml:"timeout" toml:"timeout"`
 	Auth              []SSHAuthMethod `json:"auth" yaml:"auth" toml:"auth"`
-	HostKey           SSHHostKey      `json:"host-key" yaml:"host-key" toml:"host-key"`
+	HostKey           *SSHHostKey     `json:"host-key" yaml:"host-key" toml:"host-key"`
 }
 
 func (cc SSHClientConfig) ToGoSSHClientConfig() (*ssh.ClientConfig, error) {
@@ -133,9 +133,11 @@ func (cc SSHClientConfig) ToGoSSHClientConfig() (*ssh.ClientConfig, error) {
 		}
 	}
 
-	var err error
-	if cfg.HostKeyCallback, err = cc.HostKey.toHostKeyCallback(); err != nil {
-		return nil, err
+	if cc.HostKey != nil {
+		var err error
+		if cfg.HostKeyCallback, err = cc.HostKey.toHostKeyCallback(); err != nil {
+			return nil, err
+		}
 	}
 	return cfg, nil
 }

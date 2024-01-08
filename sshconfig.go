@@ -1,7 +1,6 @@
 package sshconfig
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func loadFile(filename string) ([]byte, error) {
@@ -57,9 +57,8 @@ type SSHAuthMethod struct {
 //********** SSHHostKey
 
 type SSHHostKey struct {
-	InsecureIgnore bool   `json:"insecure-ignore" yaml:"insecure-ignore" toml:"insecure-ignore"`
-	PublicKeyFile  string `json:"public-key" yaml:"public-key" toml:"public-key"`
-	PublicKeyData  string `json:"public-key-data" yaml:"public-key-data" toml:"public-key-data"`
+	InsecureIgnore bool     `json:"insecure-ignore" yaml:"insecure-ignore" toml:"insecure-ignore"`
+	KnownHosts     []string `json:"known-hosts" yaml:"known-hosts" toml:"known-hosts"`
 }
 
 func (h SSHHostKey) toHostKeyCallback() (ssh.HostKeyCallback, error) {
@@ -67,21 +66,14 @@ func (h SSHHostKey) toHostKeyCallback() (ssh.HostKeyCallback, error) {
 		return ssh.InsecureIgnoreHostKey(), nil
 	}
 
-	if h.PublicKeyFile != "" && h.PublicKeyData != "" {
-		return nil, fmt.Errorf("public-key and public-key-data are mutual exclusive")
+	if len(h.KnownHosts) == 0 {
+		return nil, fmt.Errorf("insecure-ignore is false and no known-hosts files specified")
 	}
-	keyData := []byte(h.PublicKeyData)
-	if h.PublicKeyFile != "" {
-		var err error
-		if keyData, err = loadFile(h.PublicKeyFile); err != nil {
-			return nil, fmt.Errorf("failed to load public-key: %v", err)
-		}
-	}
-	_, _, key, _, _, err := ssh.ParseKnownHosts(bytes.Join([][]byte{[]byte("*"), keyData}, []byte(" ")))
+	cb, err := knownhosts.New(h.KnownHosts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load public-key: %v", err)
+		return nil, fmt.Errorf("failed to load known-hosts files: %v", err)
 	}
-	return ssh.FixedHostKey(key), nil
+	return cb, nil
 }
 
 //********** SSHBaseConfig
